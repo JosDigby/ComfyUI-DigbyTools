@@ -1,6 +1,8 @@
 from __future__ import annotations
 from comfy_api.latest import io
+import comfy.utils
 import torch
+import json
 
 class DigbyKeyframer(io.ComfyNode):
     @classmethod
@@ -18,14 +20,39 @@ class DigbyKeyframer(io.ComfyNode):
                         max=16,                       # maximum slots (default 10, hard cap 100)
                     ),
                 ),
-                io.Int.Input("frame_count", default=121, min=1),
+                io.Int.Input("length_in_seconds", default=5, min=1, max=45),
                 io.Int.Input("short_edge_length", default=720, min=1),
+                io.String.Input("keyframe_data", default="{}")
             ],
             outputs=[io.Image.Output("guide_frames")],
         )
 
     @classmethod
-    def execute(cls, images: io.Autogrow.Type):
-        # images is a dict: {"image_0": tensor, "image_1": tensor, ...}
-        tensors = [v for v in images.values() if v is not None]
-        return io.NodeOutput(torch.cat(tensors, dim=0))
+    def execute(cls, images: io.Autogrow.Type, length_in_seconds: io.Int, short_edge_length: io.Int, keyframe_data: io.String = "{}"):
+        height = images['image_0'][0].shape[0]
+        width = images['image_0'][0,0].shape[0]
+        keyframe_list = json.loads(keyframe_data)['keyframes']
+        frame_count = int(24*length_in_seconds)+1
+
+        print(f"{keyframe_list}")
+
+        scale_factor = 1
+        if (height < width): 
+            scale_factor = short_edge_length / height
+        else:
+            scale_factor = short_edge_length / width
+
+        height = round(height * scale_factor)
+        width = round(width * scale_factor)
+
+
+        output_images = torch.zeros((frame_count, height, width, 3))
+
+        for index, img in enumerate(images.values()):
+            if img is not None:
+                resized_img = comfy.utils.common_upscale(img[:].movedim(-1,1), width, height, "bilinear", "center").movedim(1, -1)
+                frame = round(keyframe_list[index]['x'] * (frame_count-1))
+                clip_length = resized_img.shape[0]
+                output_images[frame:frame+clip_length] = resized_img[:]
+                    
+        return io.NodeOutput(output_images)

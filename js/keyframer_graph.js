@@ -12,7 +12,7 @@ app.registerExtension({
                     onNodeCreated.apply(this, arguments);
                 }
 
-                if (!this.size) this.size = [340, 260];
+                if (!this.size) this.size = [400,500];
 
                 // --- Graph area margins ---
                 this.graph_side_margin = 25;
@@ -27,7 +27,7 @@ app.registerExtension({
 
                 // --- Widget for curve data with callback ---
                 if (!this.widgets) this.widgets = [];
-                
+               
                 // Create the keyframe_data widget with callback directly
                 if (!this.widgets.find(w => w.name === "keyframe_data")) {
                     const curveDataCallback = (value) => {
@@ -55,14 +55,14 @@ app.registerExtension({
                         node.updateCurve();
                         node.setDirtyCanvas(true, true);
                     };
-
+/*
                     this.addWidget(
                         "string",
                         "keyframe_data",
                         "",
                         curveDataCallback,
                         { multiline: false, disabled: false }
-                    );
+                    );*/
                 }
 
                 
@@ -122,30 +122,11 @@ app.registerExtension({
                         );
                         
                         if (pointIndex >= 0) {
-                            // Delete if Shift+Left click, else drag
-                            if (e.button === 0 && e.shiftKey) {
-                                if (node.points.length > 2) {
-                                    node.points.splice(pointIndex, 1);
-                                    node.updateCurve();
-                                    app.graph.change();
-                                    node.setDirtyCanvas(true, true);
-                                }
-                                return true;
-                            } else if (e.button === 0) {
+                            if (e.button === 0) {
                                 node.dragState = {
                                     index: pointIndex,
                                     offsetX: graphPos.x - node.points[pointIndex].x
                                 };
-                                app.graph.change();
-                                node.setDirtyCanvas(true, true);
-                                return true;
-                            }
-                        } else if (e.button === 0) {
-                            // Add new point
-                            let newX = Math.max(0, Math.min(1, graphPos.x));
-                            if (!node.points.some(p => Math.abs(p.x - newX) < 1e-4)) {
-                                node.points.push({ x: newX });
-                                node.updateCurve();
                                 app.graph.change();
                                 node.setDirtyCanvas(true, true);
                                 return true;
@@ -208,7 +189,8 @@ app.registerExtension({
                 calcGraphArea() {
                     // Calculate the exact position where widgets end
                     let widgets_bottom = 10; // Space for node title
-                    
+                    let bottom_widget_y = 0
+
                     if (this.widgets && this.widgets.length) {
                         this.widgets.forEach(w => {
                             let widget_height = 30; // Default height
@@ -220,14 +202,17 @@ app.registerExtension({
                             }
                             else if (w.type === "string") widget_height = 30;
                             
+                            if (bottom_widget_y < w.y) bottom_widget_y = w.y
+
                             widgets_bottom += widget_height;
                         });
                         
                         widgets_bottom += 10; 
+
+                        widgets_bottom = bottom_widget_y + 10
                     }
                     
-                    // Reduced from 20px to 5px for less spacing
-                    const extra_clearance = 5;
+                    const extra_clearance = 20;
                     this.graph_area_top = widgets_bottom + extra_clearance;
                     
                     // Calculate available space for graph
@@ -260,15 +245,6 @@ app.registerExtension({
                     this.points = this.points.filter((pt, idx, arr) =>
                         idx === 0 || pt.x !== arr[idx - 1].x
                     );
-                    /*
-                    if (this.points.length < 2) {
-                        this.points = [
-                            { x: 0 },
-                            { x: 0.5 },
-                            { x: 1 }
-                        ];
-                    }
-                        */
                 },
 
                 toScreenCoords(point) {
@@ -329,27 +305,25 @@ app.registerExtension({
 
                     // --- Draw points ---
                     const key_width = 10
-                    ctx.fillStyle = "#FF5555";
-                    for (let point of this.points) {
+                    for (let [point_index, point] of this.points.entries()) {
+                        ctx.fillStyle = "#FF5555";
+                        ctx.strokeStyle = "#880000";
+
+                        if (this.dragState?.index == point_index){
+                            ctx.fillStyle = "#ffff00"
+                            ctx.strokeStyle = "#888800"
+                        }
+
+                        
                         point.y = 0
                         let [x, y] = this.toScreenCoords(point);
                         x = Math.min(x, this.graph_area_left + this.graph_area_width - key_width)
                         ctx.beginPath()
                         ctx.rect(x, y, key_width, -this.graph_area_height)
                         ctx.fill();
-                        ctx.strokeStyle = "#880000";
                         ctx.lineWidth = 1.5;
                         ctx.stroke();
                     }
-
-                    // --- Draw user instruction just below the graph area ---
-                    ctx.fillStyle = "#222";
-                    ctx.font = "11px sans-serif";
-                    ctx.fillText(
-                        "Shift+Click to delete point",
-                        this.graph_area_left + 5,
-                        this.graph_area_top + this.graph_area_height + 16
-                    );
                 },
 
                 updateCurve() {
@@ -411,16 +385,21 @@ app.registerExtension({
                     this.points.pop()
                 }
 
-                if (existing_keyframes < this.keyframe_count) {
+                if ((existing_keyframes >= 2) && (existing_keyframes < this.keyframe_count)) {
                     this.points.forEach((point, i) => {
-                        point.x = point.x * existing_keyframes / this.keyframe_count
+                        point.x = point.x * (existing_keyframes-1) / existing_keyframes 
                     })
-                    this.points.push({x:1})
-                    // we need to add a new keyframe to the end
                 }
-                
+
+                if (this.keyframe_count > existing_keyframes) {  
+                    if (existing_keyframes == 0)
+                        this.points.push({x:0})
+                    else
+                        this.points.push({x:1})
+                }                
                 // Your slot change logic here
                 console.log("Connection changed!", { side, slot, connect, link_info });
+                this.calcGraphArea()
                 return r;
             }
         }
