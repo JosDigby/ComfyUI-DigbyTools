@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 
 app.registerExtension({
-    name: "InteractiveKeyframeSliders",
+    name: "DigbyKeyframer",
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name === "DigbyKeyframer") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
