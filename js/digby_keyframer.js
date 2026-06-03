@@ -268,7 +268,7 @@ app.registerExtension({
                     this.updateCurve();
 
                     // --- White background for the graph area ---
-                    ctx.fillStyle = "#fff";
+                    ctx.fillStyle = "#222";
                     ctx.fillRect(
                         this.graph_area_left,
                         this.graph_area_top,
@@ -277,7 +277,7 @@ app.registerExtension({
                     );
 
                     // --- Draw grid ---
-                    ctx.strokeStyle = "#eee";
+                    ctx.strokeStyle = "#444";
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     for (let i = 0.25; i < 1; i += 0.25) {
@@ -285,22 +285,7 @@ app.registerExtension({
                         let x = this.graph_area_left + i * this.graph_area_width;
                         ctx.moveTo(x, this.graph_area_top);
                         ctx.lineTo(x, this.graph_area_top + this.graph_area_height);
-                        // Horizontal grid lines
-                        let y = this.graph_area_top + i * this.graph_area_height;
-                        ctx.moveTo(this.graph_area_left, y);
-                        ctx.lineTo(this.graph_area_left + this.graph_area_width, y);
                     }
-                    ctx.stroke();
-
-                    // --- Draw axes ---
-                    ctx.strokeStyle = "#aaa";
-                    ctx.beginPath();
-                    // X axis (bottom)
-                    ctx.moveTo(this.graph_area_left, this.graph_area_top + this.graph_area_height);
-                    ctx.lineTo(this.graph_area_left + this.graph_area_width, this.graph_area_top + this.graph_area_height);
-                    // Y axis (left)
-                    ctx.moveTo(this.graph_area_left, this.graph_area_top + this.graph_area_height);
-                    ctx.lineTo(this.graph_area_left, this.graph_area_top);
                     ctx.stroke();
 
                     // --- Draw points ---

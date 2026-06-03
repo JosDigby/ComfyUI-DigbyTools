@@ -12,8 +12,6 @@ app.registerExtension({
 
                 if ((side == 1) && (slot_info.name === "template_images")) {
                     var is_disabled = ((link_info != null) && (connect)) 
-
-                    this.widgets.find(w => w.name === "length_in_seconds").disabled = is_disabled
                     this.widgets.find(w => w.name === "height").disabled = is_disabled
                     this.widgets.find(w => w.name === "width").disabled = is_disabled
                 }
