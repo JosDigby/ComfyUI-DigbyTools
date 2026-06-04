@@ -221,7 +221,7 @@ app.registerExtension({
                     this.graph_area_left = this.graph_side_margin;
                     
                     // Ensure minimum graph height
-                    const min_graph_height = 10;
+                    const min_graph_height = 50;
                     if (this.graph_area_height < min_graph_height) {
                         const additional_height = min_graph_height - this.graph_area_height;
                         this.size[1] += additional_height;
@@ -262,6 +262,14 @@ app.registerExtension({
                     };
                 },
 
+                getDuration() {
+                    const widget = this.widgets.find(w => w.name === "length_in_seconds") 
+                    if (widget) 
+                        return(widget.value)
+                    else 
+                        return(1)
+                },
+                
                 onDrawForeground(ctx) {
                     this.calcGraphArea();
                     this._ensureValidPoints();
@@ -276,23 +284,44 @@ app.registerExtension({
                         this.graph_area_height
                     );
 
+                    const duration = this.getDuration()
+                    
                     // --- Draw grid ---
                     ctx.strokeStyle = "#444";
                     ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    for (let i = 0.25; i < 1; i += 0.25) {
+                    for (let i = 0; i <= duration; i += 1) {
                         // Vertical grid lines
-                        let x = this.graph_area_left + i * this.graph_area_width;
+                        let x = this.graph_area_left + (i/duration) * this.graph_area_width;
+                        ctx.beginPath();
+                        if ((i % 5) == 0) {
+                            ctx.lineWidth = 2
+                            ctx.strokeStyle = "#888"
+                        } else {
+                            ctx.lineWidth = 1
+                            ctx.strokeStyle = "#333"
+                        }
                         ctx.moveTo(x, this.graph_area_top);
                         ctx.lineTo(x, this.graph_area_top + this.graph_area_height);
+                        ctx.stroke();
+
+                        // Label the lines
+                        if (i > 0) {
+                            ctx.fillStyle = ctx.strokeStyle;
+                            ctx.font = "10px sans-serif";
+                            ctx.textAlign = "right";
+                            ctx.fillText(i,
+                                this.graph_area_left + (i/duration) * this.graph_area_width - 5,
+                                this.graph_area_top + this.graph_area_height - 5
+                            );
+                        }
                     }
-                    ctx.stroke();
 
                     // --- Draw points ---
                     const key_width = 10
+                    ctx.globalAlpha = 0.5
                     for (let [point_index, point] of this.points.entries()) {
-                        ctx.fillStyle = "#FF5555";
-                        ctx.strokeStyle = "#880000";
+                        ctx.fillStyle = "#22bb22";
+                        ctx.strokeStyle = "#008800";
 
                         if (this.dragState?.index == point_index){
                             ctx.fillStyle = "#ffff00"
@@ -303,12 +332,15 @@ app.registerExtension({
                         point.y = 0
                         let [x, y] = this.toScreenCoords(point);
                         x = Math.min(x, this.graph_area_left + this.graph_area_width - key_width)
+                        x -= (key_width / 2)
                         ctx.beginPath()
                         ctx.rect(x, y, key_width, -this.graph_area_height)
                         ctx.fill();
                         ctx.lineWidth = 1.5;
                         ctx.stroke();
                     }
+                    ctx.globalAlpha = 1
+
                 },
 
                 updateCurve() {

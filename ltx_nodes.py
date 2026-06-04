@@ -70,8 +70,13 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
             )
             audio_latents =  {"samples": audio_samples, "type": "audio"}
         else:
+            real_custom_audio = {
+                'waveform': custom_audio['waveform'],
+                'sample_rate': custom_audio['sample_rate']
+            }
+
             num_audio_latents = audio_vae.first_stage_model.num_of_latents_from_frames(frame_count, 24) # Calculate the expected audio latent size
-            audio_samples = VAEEncodeAudio.execute(audio_vae, custom_audio).result[0]["samples"]
+            audio_samples = VAEEncodeAudio.execute(audio_vae, real_custom_audio).result[0]["samples"]
             audio_mask = torch.zeros_like(audio_samples)
 
             if (audio_samples.shape[2] > num_audio_latents): # truncate - probably unnecessary
