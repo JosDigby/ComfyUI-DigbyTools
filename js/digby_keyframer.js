@@ -89,7 +89,7 @@ app.registerExtension({
                 }
 
                 this.dragState = null;
-                this.hitRadius = 0.05;
+                this.hitRadius = 0.5;
 
                 this._ensureValidPoints();
                 this.updateCurve();
@@ -103,7 +103,6 @@ app.registerExtension({
 
                 // Create bound versions of our mouse handlers
                 this.onMouseDown = function(e, pos, canvas) {
-                    console.log("CustomSplineSigma onMouseDown called", e, pos);
                     
                     node.calcGraphArea();
                     
@@ -114,7 +113,7 @@ app.registerExtension({
                         pos[1] >= node.graph_area_top &&
                         pos[1] <= node.graph_area_top + node.graph_area_height
                     ) {
-                        console.log("Click is inside graph area");
+                        // Click is inside graph area
                         
                         const graphPos = node.toGraphCoords(pos);
                         const pointIndex = node.points.findIndex(p =>
@@ -149,14 +148,12 @@ app.registerExtension({
                         node.calcGraphArea();
                         
                         const graphPos = node.toGraphCoords(pos);
-                        let newX = Math.max(0, Math.min(1, graphPos.x - node.dragState.offsetX));
+                        let newX = Math.max(0, Math.min(this.getDuration(), graphPos.x - node.dragState.offsetX));
                         const i = node.dragState.index;
                         
                         if (i > 0) newX = Math.max(node.points[i - 1].x + 1e-3, newX);
                         if (i < node.points.length - 1) newX = Math.min(node.points[i + 1].x - 1e-3, newX);
                         
-                        console.log("CustomSplineSigma onMouseMove with dragState: newX = " + newX);
-
                         node.points[i] = { x: newX };
                         node.updateCurve();
                         node.setDirtyCanvas(true, true);
@@ -171,7 +168,6 @@ app.registerExtension({
 
                 this.onMouseUp = function(e, pos, canvas) {
                     if (node.dragState) {
-                        console.log("CustomSplineSigma onMouseUp releasing dragState");
                         node.dragState = null;
                         app.graph.change();
                         return true;
@@ -239,7 +235,7 @@ app.registerExtension({
                     }
                     this.points = this.points
                         .map(p => ({
-                            x: Math.max(0, Math.min(1, p.x))
+                            x: p.x // replaces Math.max(0, Math.min(1, p.x))
                         }))
                         .sort((a, b) => a.x - b.x);
                     this.points = this.points.filter((pt, idx, arr) =>
@@ -250,7 +246,7 @@ app.registerExtension({
                 toScreenCoords(point) {
                     this.calcGraphArea();
                     return [
-                        this.graph_area_left + point.x * this.graph_area_width,
+                        this.graph_area_left + (point.x * this.graph_area_width / this.getDuration()),
                         this.graph_area_top + (1 - point.y) * this.graph_area_height
                     ];
                 },
@@ -258,7 +254,7 @@ app.registerExtension({
                 toGraphCoords(pos) {
                     this.calcGraphArea();
                     return {
-                        x: Math.max(0, Math.min(1, (pos[0] - this.graph_area_left) / this.graph_area_width))
+                        x: this.getDuration() * Math.max(0, Math.min(1, (pos[0] - this.graph_area_left) / this.graph_area_width))
                     };
                 },
 
@@ -331,7 +327,7 @@ app.registerExtension({
                         
                         point.y = 0
                         let [x, y] = this.toScreenCoords(point);
-                        x = Math.min(x, this.graph_area_left + this.graph_area_width - key_width)
+                        x = Math.min(x, this.graph_area_left + this.graph_area_width)
                         x -= (key_width / 2)
                         ctx.beginPath()
                         ctx.rect(x, y, key_width, -this.graph_area_height)
@@ -414,8 +410,7 @@ app.registerExtension({
                     else
                         this.points.push({x:1})
                 }                
-                // Your slot change logic here
-                console.log("Connection changed!", { side, slot, connect, link_info });
+
                 this.calcGraphArea()
                 return r;
             }

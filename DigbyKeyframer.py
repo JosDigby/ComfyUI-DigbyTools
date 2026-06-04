@@ -51,7 +51,7 @@ class DigbyKeyframer(io.ComfyNode):
         for index, img in enumerate(images.values()):
             if img is not None:
                 resized_img = comfy.utils.common_upscale(img[:].movedim(-1,1), width, height, "bilinear", "center").movedim(1, -1)
-                frame = round(keyframe_list[index]['x'] * (frame_count-1))
+                frame = round(keyframe_list[index]['x'] * 24) 
                 clip_length = resized_img.shape[0]
                 output_images[frame:frame+clip_length] = resized_img[:]
                     
