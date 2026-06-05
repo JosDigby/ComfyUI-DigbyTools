@@ -1,22 +1,33 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
 app.registerExtension({
     name: "DigbyKeyframer",
+
+    async setup()
+    {
+    },
+
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name === "DigbyKeyframer") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function() {
                 const node = this;
                 
-                if (onNodeCreated) {
-                    onNodeCreated.apply(this, arguments);
-                }
+                if (onNodeCreated) onNodeCreated.apply(this, arguments);
+
+                api.addEventListener("executed", (event) => {
+                    this.updateKeyframeLengths(event.detail.output.batch_lengths)
+                })
+
 
                 if (!this.size) this.size = [400,500];
 
                 // --- Graph area margins ---
-                this.graph_side_margin = 25;
-                this.graph_bottom_margin = 20;
+                this.graph_side_margin = 25
+                this.graph_bottom_margin = 20
+                this.drag_handle_frame_size = 4
+                this.fps = 24
 
                 this.keyframe_count = 0;
 
@@ -55,14 +66,6 @@ app.registerExtension({
                         node.updateCurve();
                         node.setDirtyCanvas(true, true);
                     };
-/*
-                    this.addWidget(
-                        "string",
-                        "keyframe_data",
-                        "",
-                        curveDataCallback,
-                        { multiline: false, disabled: false }
-                    );*/
                 }
 
                 
@@ -89,7 +92,7 @@ app.registerExtension({
                 }
 
                 this.dragState = null;
-                this.hitRadius = 0.5;
+                this.hitRadius = this.drag_handle_frame_size / this.fps
 
                 this._ensureValidPoints();
                 this.updateCurve();
@@ -154,7 +157,7 @@ app.registerExtension({
                         if (i > 0) newX = Math.max(node.points[i - 1].x + 1e-3, newX);
                         if (i < node.points.length - 1) newX = Math.min(node.points[i + 1].x - 1e-3, newX);
                         
-                        node.points[i] = { x: newX };
+                        node.points[i].x = newX;
                         node.updateCurve();
                         node.setDirtyCanvas(true, true);
                         return true;
@@ -178,6 +181,18 @@ app.registerExtension({
                     }
                     return false;
                 };
+
+                this.updateKeyframeLengths = function(length_array) {
+                    if (!length_array) return
+                    for (const [index, value] of length_array.entries())
+                    {
+                        if (index in this.points) this.points[index]['width'] = value
+                    } 
+
+                    this._updateCurveWidget()
+                    this.setDirtyCanvas(true,true)
+                }
+
             };
 
             // Add all the other methods to the prototype
@@ -235,7 +250,9 @@ app.registerExtension({
                     }
                     this.points = this.points
                         .map(p => ({
-                            x: p.x // replaces Math.max(0, Math.min(1, p.x))
+                            x: p.x, // replaces Math.max(0, Math.min(1, p.x))
+                            y: p.y,
+                            width: p.width
                         }))
                         .sort((a, b) => a.x - b.x);
                     this.points = this.points.filter((pt, idx, arr) =>
@@ -265,7 +282,15 @@ app.registerExtension({
                     else 
                         return(1)
                 },
-                
+
+                getTotalFrames() {
+                    const widget = this.widgets.find(w => w.name === "length_in_seconds") 
+                    if (widget) 
+                        return(widget.value * this.fps) // assume 24 frames per second
+                    else 
+                        return(1)
+                },
+
                 onDrawForeground(ctx) {
                     this.calcGraphArea();
                     this._ensureValidPoints();
@@ -313,9 +338,39 @@ app.registerExtension({
                     }
 
                     // --- Draw points ---
-                    const key_width = 10
-                    ctx.globalAlpha = 0.5
+                    const pixels_per_frame = this.graph_area_width / this.getTotalFrames()
+                    const min_key_width = this.drag_handle_frame_size * pixels_per_frame // pixels
+
+                    ctx.lineWidth = 2;
                     for (let [point_index, point] of this.points.entries()) {
+                        point.y = 0
+
+                        console.log("-------------------------\npoint index = " + point_index)
+                        if (point.width)
+                        {
+                            ctx.fillStyle = "#66f"
+                            ctx.strokeStyle = "#338"
+
+                            let key_width = (point.width * pixels_per_frame)// - (min_key_width/2)
+                            console.log("blue key_width = " + key_width)
+                            if (key_width > -100 ) {
+                                let [x, y] = this.toScreenCoords(point);
+                                x = Math.min(x, this.graph_area_left + this.graph_area_width) 
+
+                                if (x + key_width > this.graph_area_left + this.graph_area_width) {
+                                    x = this.graph_area_left + this.graph_area_width - key_width
+                                }
+                                ctx.globalAlpha = 0.5
+                                ctx.beginPath();
+                                ctx.rect(x, y, key_width, -this.graph_area_height)
+                                ctx.fill();
+                                ctx.stroke();
+                            }
+                        }
+
+                        ctx.globalAlpha = 1
+                        ctx.beginPath();
+
                         ctx.fillStyle = "#22bb22";
                         ctx.strokeStyle = "#008800";
 
@@ -324,18 +379,20 @@ app.registerExtension({
                             ctx.strokeStyle = "#888800"
                         }
 
-                        
-                        point.y = 0
                         let [x, y] = this.toScreenCoords(point);
+                        let key_width = min_key_width         
                         x = Math.min(x, this.graph_area_left + this.graph_area_width)
-                        x -= (key_width / 2)
+                        //x -= (key_width / 2)
                         ctx.beginPath()
-                        ctx.rect(x, y, key_width, -this.graph_area_height)
+//                        ctx.rect(x, y-20, key_width, -this.graph_area_height + 40)
+                        ctx.moveTo(x , y-20)
+                        ctx.lineTo(x + (key_width), y - this.graph_area_height/2)
+                        ctx.lineTo(x , y - this.graph_area_height + 20)
+                        ctx.lineTo(x - (key_width), y - this.graph_area_height/2)
+                        ctx.closePath()
                         ctx.fill();
-                        ctx.lineWidth = 1.5;
                         ctx.stroke();
                     }
-                    ctx.globalAlpha = 1
 
                 },
 
@@ -367,7 +424,9 @@ app.registerExtension({
                     if (info.curve_state && Array.isArray(info.curve_state)) {
                         try {
                             this.points = info.curve_state.map(pt => ({
-                                x: Number(pt.x)
+                                x: Number(pt.x),
+                                y: Number(pt.y),
+                                width: Number(pt.width)
                             }));
                             this._ensureValidPoints();
                             this.updateCurve();
@@ -379,7 +438,7 @@ app.registerExtension({
 
                 onSerialize(info) {
                     info.curve_state = this.points;
-                },
+                }
               
             });
 
@@ -390,7 +449,9 @@ app.registerExtension({
                 const existing_keyframes = this.keyframe_count
                 this.keyframe_count = 0
                 this.inputs.forEach((input, i) => {
-                    if (this.isInputConnected(i)) this.keyframe_count += 1
+                    if (this.isInputConnected(i)) {
+                        this.keyframe_count += 1
+                    }
                 })
 
                 if (existing_keyframes > this.keyframe_count) {
@@ -408,7 +469,7 @@ app.registerExtension({
                     if (existing_keyframes == 0)
                         this.points.push({x:0})
                     else
-                        this.points.push({x:1})
+                        this.points.push({x: this.getDuration() })
                 }                
 
                 this.calcGraphArea()

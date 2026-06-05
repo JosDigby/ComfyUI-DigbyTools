@@ -22,9 +22,10 @@ class DigbyKeyframer(io.ComfyNode):
                 ),
                 io.Int.Input("length_in_seconds", default=5, min=1, max=45),
                 io.Int.Input("short_edge_length", default=720, min=1),
-                io.String.Input("keyframe_data", default="{}")
+                io.String.Input("keyframe_data", default="{}"),
             ],
             outputs=[io.Image.Output("guide_frames")],
+            is_output_node=True,
         )
 
     @classmethod
@@ -47,12 +48,17 @@ class DigbyKeyframer(io.ComfyNode):
 
 
         output_images = torch.zeros((frame_count, height, width, 3))
-
+        batch_lengths = []
         for index, img in enumerate(images.values()):
             if img is not None:
+                batch_lengths.append(img.shape[0])
                 resized_img = comfy.utils.common_upscale(img[:].movedim(-1,1), width, height, "bilinear", "center").movedim(1, -1)
                 frame = round(keyframe_list[index]['x'] * 24) 
                 clip_length = resized_img.shape[0]
-                output_images[frame:frame+clip_length] = resized_img[:]
+
+                if (clip_length <= frame_count - frame):
+                    output_images[frame:frame+clip_length] = resized_img[:]
+                else:
+                    output_images[-clip_length:] = resized_img[:]
                     
-        return io.NodeOutput(output_images)
+        return io.NodeOutput(output_images, ui={"batch_lengths":batch_lengths})
