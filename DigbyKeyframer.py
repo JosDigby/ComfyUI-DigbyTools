@@ -21,7 +21,7 @@ class DigbyKeyframer(io.ComfyNode):
                     ),
                 ),
                 io.Int.Input("length_in_seconds", default=5, min=1, max=45),
-                io.Int.Input("short_edge_length", default=720, min=1),
+                io.Int.Input("short_edge_length", default=720, min=0),
                 io.String.Input("keyframe_data", default="{}"),
             ],
             outputs=[io.Image.Output("guide_frames")],
@@ -42,6 +42,8 @@ class DigbyKeyframer(io.ComfyNode):
             scale_factor = short_edge_length / height
         else:
             scale_factor = short_edge_length / width
+
+        if (scale_factor ==0): scale_factor = 1
 
         height = round(height * scale_factor)
         width = round(width * scale_factor)
