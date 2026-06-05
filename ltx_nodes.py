@@ -1,6 +1,8 @@
 from __future__ import annotations
 from comfy_api.latest import io
 from comfy_extras.nodes_audio import VAEEncodeAudio
+from comfy_extras.nodes_lt import get_noise_mask, LTXVAddGuide, _append_guide_attention_entry
+
 import comfy.model_management
 import torch
 
@@ -111,3 +113,85 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
 
 
         
+class DigbyLTXVAddGuidesFromBatch(LTXVAddGuide):
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="DigbyLTXVAddGuidesFromBatch",           
+            display_name="Digby LTXV Add Guides From Batch",
+            category="DigbyTools/ltxv",
+            description="Adds multiple guide images from a batch to the latent at corresponding frame indices. Non-black images in the batch are used as guides.",
+            inputs=[
+                io.Conditioning.Input("positive"),
+                io.Conditioning.Input("negative"),
+                io.Vae.Input("vae"),
+                io.Latent.Input("latent"),
+                io.Image.Input("images", tooltip="Batch of images - non-black images will be used as guides"),
+                io.Float.Input("strength", default=1.0, min=0.0, max=10.0, step=0.01, tooltip="Strength for all guides."),
+            ],
+            outputs=[
+                io.Conditioning.Output(display_name="positive"),
+                io.Conditioning.Output(display_name="negative"),
+                io.Latent.Output(display_name="latent"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, positive, negative, vae, latent, images, strength) -> io.NodeOutput:
+        scale_factors = vae.downscale_index_formula
+        latent_image = latent["samples"]
+        noise_mask = get_noise_mask(latent)
+
+        _, _, latent_length, latent_height, latent_width = latent_image.shape
+
+        black_threshold = 0.001
+        # Process each image in the batch
+        batch_size = images.shape[0]
+
+        image_run = { "start": -1, "length": 0 }
+        if images[0].max() > black_threshold:
+            image_run["start"] = 0
+            image_run["length"] = 1
+
+        for i in range(1,batch_size):
+            add_run = False
+
+            if (images[i].max() <= black_threshold):
+                add_run = True
+            else:
+                if (image_run["start"] == -1): image_run["start"] = i
+                image_run["length"] = image_run["length"] + 1
+                if (i == batch_size - 1):
+                    add_run = True
+
+            if ((add_run) and (image_run["start"] >= 0)):
+                print(f"DigbyTools: At index [{i}] we will start the encode process for images based on {image_run}")
+                f_idx = image_run["start"]
+                img = images[f_idx: f_idx + image_run["length"]]
+                image_run = { "start": -1, "length": 0 } # Reset now before moving on
+
+                image_1, t = cls.encode(vae, latent_width, latent_height, img, scale_factors)
+
+                frame_idx, latent_idx = cls.get_latent_index(positive, latent_length, len(image_1), f_idx, scale_factors)
+
+                if latent_idx + t.shape[2] <= latent_length:
+                    positive, negative, latent_image, noise_mask = cls.append_keyframe(
+                        positive,
+                        negative,
+                        frame_idx,
+                        latent_image,
+                        noise_mask,
+                        t,
+                        strength,
+                        scale_factors,
+                    )
+
+                    # Track this guide for per-reference attention control.
+                    pre_filter_count = t.shape[2] * t.shape[3] * t.shape[4]
+                    guide_latent_shape = list(t.shape[2:])  # [F, H, W]
+                    positive, negative = _append_guide_attention_entry(positive, negative, pre_filter_count, guide_latent_shape, strength=strength)
+                else:
+                    print(f"Warning: Skipping guide at index {f_idx} - conditioning frames exceed latent sequence length")
+
+        return io.NodeOutput(positive, negative, {"samples": latent_image, "noise_mask": noise_mask})
