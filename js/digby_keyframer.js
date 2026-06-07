@@ -26,7 +26,7 @@ app.registerExtension({
                 // --- Graph area margins ---
                 this.graph_side_margin = 25
                 this.graph_bottom_margin = 20
-                this.drag_handle_frame_size = 4
+                this.drag_handle_frame_size = 8
                 this.fps = 24
 
                 this.keyframe_count = 0;
@@ -158,6 +158,18 @@ app.registerExtension({
                         if (i < node.points.length - 1) newX = Math.min(node.points[i + 1].x - 1e-3, newX);
                         
                         node.points[i].x = newX;
+
+                    if (!(
+                        pos[0] >= node.graph_area_left &&
+                        pos[0] <= node.graph_area_left + node.graph_area_width &&
+                        pos[1] >= node.graph_area_top &&
+                        pos[1] <= node.graph_area_top + node.graph_area_height
+                        )) {
+                            node.dragState = null
+                            app.graph.change()
+                        }
+
+
                         node.updateCurve();
                         node.setDirtyCanvas(true, true);
                         return true;
@@ -341,28 +353,26 @@ app.registerExtension({
                     const pixels_per_frame = this.graph_area_width / this.getTotalFrames()
                     const min_key_width = this.drag_handle_frame_size * pixels_per_frame // pixels
 
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 1.5;
                     for (let [point_index, point] of this.points.entries()) {
                         point.y = 0
 
-                        console.log("-------------------------\npoint index = " + point_index)
                         if (point.width)
                         {
                             ctx.fillStyle = "#66f"
                             ctx.strokeStyle = "#338"
 
-                            let key_width = (point.width * pixels_per_frame)// - (min_key_width/2)
-                            console.log("blue key_width = " + key_width)
-                            if (key_width > -100 ) {
+                            let frame_overlay_width = (point.width * pixels_per_frame)
+                            if (frame_overlay_width > -100 ) {
                                 let [x, y] = this.toScreenCoords(point);
                                 x = Math.min(x, this.graph_area_left + this.graph_area_width) 
 
-                                if (x + key_width > this.graph_area_left + this.graph_area_width) {
-                                    x = this.graph_area_left + this.graph_area_width - key_width
+                                if (x + frame_overlay_width > this.graph_area_left + this.graph_area_width) {
+                                    x = this.graph_area_left + this.graph_area_width - frame_overlay_width
                                 }
                                 ctx.globalAlpha = 0.5
                                 ctx.beginPath();
-                                ctx.rect(x, y, key_width, -this.graph_area_height)
+                                ctx.rect(x, y, frame_overlay_width, -this.graph_area_height)
                                 ctx.fill();
                                 ctx.stroke();
                             }
