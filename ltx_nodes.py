@@ -19,6 +19,7 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
                 io.Vae.Input(id="video_vae", tooltip="LTXV Video VAE"),
                 io.Vae.Input(id="audio_vae", tooltip="LTXV Audio VAE"),
                 io.Boolean.Input(id="downscale_2stage", default=True),
+                io.Float.Input(id="frame_rate", default=24, min=24),
                 io.Int.Input(id="minimum_seconds", default=3, min=1, max=45),
                 io.Int.Input(id="width", default=1280, min=2, step=2),
                 io.Int.Input(id="height", default=720, min=2, step=2),
@@ -28,12 +29,14 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
             outputs=[
                 io.Latent.Output(display_name="video_latent"),
                 io.Latent.Output(display_name="audio_latent"),
-                io.Image.Output(display_name="template_images")
+                io.Image.Output(display_name="template_images"),
+                io.Int.Output(display_name="frame_count"),
+                io.Float.Output(display_name="frame_rate"),
             ]
         )
     
     @classmethod
-    def execute(cls, video_vae, audio_vae, downscale_2stage, minimum_seconds, width, height, template_images=None, custom_audio=None) -> io.NodeOutput:
+    def execute(cls, video_vae, audio_vae, downscale_2stage, minimum_seconds, width, height, frame_rate, template_images=None, custom_audio=None) -> io.NodeOutput:
         real_height= height
         real_width = width
         frame_count = (minimum_seconds*24)+1
@@ -109,7 +112,7 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
 
             audio_latents =  {"samples": audio_samples, "type": "audio", "noise_mask": audio_mask}
      
-        return io.NodeOutput(video_latents, audio_latents, output_images)
+        return io.NodeOutput(video_latents, audio_latents, output_images, output_images.shape[0], frame_rate)
 
 
         

@@ -22,18 +22,19 @@ class DigbyKeyframer(io.ComfyNode):
                 ),
                 io.Int.Input("length_in_seconds", default=5, min=1, max=45),
                 io.Int.Input("short_edge_length", default=720, min=0),
+                io.Combo.Input("frame_rate", default=24, options=(24, 25, 48, 50)),
                 io.String.Input("keyframe_data", default="{}"),
             ],
-            outputs=[io.Image.Output("guide_frames")],
+            outputs=[io.Image.Output("guide_frames"), io.Float.Output("frame_rate")],
             is_output_node=True,
         )
 
     @classmethod
-    def execute(cls, images: io.Autogrow.Type, length_in_seconds: io.Int, short_edge_length: io.Int, keyframe_data: io.String = "{}"):
+    def execute(cls, images: io.Autogrow.Type, length_in_seconds: io.Int, short_edge_length: io.Int, frame_rate:io.Int, keyframe_data: io.String = "{}"):
         height = images['image_0'][0].shape[0]
         width = images['image_0'][0,0].shape[0]
         keyframe_list = json.loads(keyframe_data)['keyframes']
-        frame_count = int(24*length_in_seconds)+1
+        frame_count = int(frame_rate*length_in_seconds)+1
 
         print(f"{keyframe_list}")
 
@@ -55,7 +56,7 @@ class DigbyKeyframer(io.ComfyNode):
             if img is not None:
                 batch_lengths.append(img.shape[0])
                 resized_img = comfy.utils.common_upscale(img[:].movedim(-1,1), width, height, "bilinear", "center").movedim(1, -1)
-                frame = round(keyframe_list[index]['x'] * 24) 
+                frame = round(keyframe_list[index]['x'] * frame_rate) 
                 clip_length = resized_img.shape[0]
 
                 if (clip_length <= frame_count - frame):
@@ -63,4 +64,4 @@ class DigbyKeyframer(io.ComfyNode):
                 else:
                     output_images[-clip_length:] = resized_img[:]
                     
-        return io.NodeOutput(output_images, ui={"batch_lengths":batch_lengths})
+        return io.NodeOutput(output_images, frame_rate, ui={"batch_lengths":batch_lengths})
