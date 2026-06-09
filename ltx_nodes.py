@@ -39,7 +39,7 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
     def execute(cls, video_vae, audio_vae, downscale_2stage, minimum_seconds, width, height, frame_rate, template_images=None, custom_audio=None) -> io.NodeOutput:
         real_height= height
         real_width = width
-        frame_count = (minimum_seconds*24)+1
+        frame_count = (minimum_seconds*frame_rate)+1
 
         video_latents = None
         audio_latents = None
@@ -63,9 +63,8 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
         video_samples = torch.zeros([1, 128, ((frame_count - 1) // 8) + 1, real_height // 32, real_width // 32], device=comfy.model_management.intermediate_device())
         video_latents = {"samples": video_samples, "downscale_ratio_spacial": 32}
 
-
+        num_audio_latents = audio_vae.first_stage_model.num_of_latents_from_frames(frame_count, frame_rate) # Calculate the expected audio latent size
         if custom_audio is None:
-            num_audio_latents = audio_vae.first_stage_model.num_of_latents_from_frames(frame_count, 24) # Calculate the expected audio latent size
             z_channels = audio_vae.latent_channels
             audio_freq = audio_vae.first_stage_model.latent_frequency_bins
         
@@ -80,7 +79,6 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
                 'sample_rate': custom_audio['sample_rate']
             }
 
-            num_audio_latents = audio_vae.first_stage_model.num_of_latents_from_frames(frame_count, 24) # Calculate the expected audio latent size
             audio_samples = VAEEncodeAudio.execute(audio_vae, real_custom_audio).result[0]["samples"]
             audio_mask = torch.zeros_like(audio_samples)
 
