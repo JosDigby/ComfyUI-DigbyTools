@@ -27,7 +27,6 @@ app.registerExtension({
                 this.graph_side_margin = 25
                 this.graph_bottom_margin = 20
                 this.drag_handle_frame_size = 8
-                this.fps = 24
 
                 this.keyframe_count = 0;
 
@@ -92,7 +91,7 @@ app.registerExtension({
                 }
 
                 this.dragState = null;
-                this.hitRadius = this.drag_handle_frame_size / this.fps
+                this.hitRadius = this.drag_handle_frame_size / this.getCurrentFrameRate()
 
                 this._ensureValidPoints();
                 this.updateCurve();
@@ -272,6 +271,11 @@ app.registerExtension({
                     );
                 },
 
+                getCurrentFrameRate()
+                {
+                    return(this.widgets.find(w => w.name === "frame_rate").value)
+                },
+
                 toScreenCoords(point) {
                     this.calcGraphArea();
                     return [
@@ -298,7 +302,7 @@ app.registerExtension({
                 getTotalFrames() {
                     const widget = this.widgets.find(w => w.name === "length_in_seconds") 
                     if (widget) 
-                        return(widget.value * this.fps) // assume 24 frames per second
+                        return(widget.value * this.getCurrentFrameRate())
                     else 
                         return(1)
                 },
@@ -459,7 +463,7 @@ app.registerExtension({
                 const existing_keyframes = this.keyframe_count
                 this.keyframe_count = 0
                 this.inputs.forEach((input, i) => {
-                    if (this.isInputConnected(i)) {
+                    if ((this.isInputConnected(i) && (input.type == "IMAGE"))) {
                         this.keyframe_count += 1
                     }
                 })

@@ -22,7 +22,7 @@ class DigbyKeyframer(io.ComfyNode):
                 ),
                 io.Int.Input("length_in_seconds", default=5, min=1, max=45),
                 io.Int.Input("short_edge_length", default=720, min=0),
-                io.Combo.Input("frame_rate", default=24, options=(24, 25, 48, 50)),
+                io.Combo.Input("frame_rate", default=24, options=(12, 24, 25, 48, 50)),
                 io.String.Input("keyframe_data", default="{}"),
             ],
             outputs=[io.Image.Output("guide_frames"), io.Float.Output("frame_rate")],

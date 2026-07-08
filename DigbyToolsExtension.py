@@ -1,6 +1,7 @@
 from comfy_api.latest import ComfyExtension, io
 from .DigbyKeyframer import DigbyKeyframer
 from .ltx_nodes import DigbyLTXVLatentPrep, DigbyLTXVAddGuidesFromBatch
+from .krea2_nodes import DigbyKrea2Patch, DigbyRange
 
 class DigbyToolsExtension(ComfyExtension):
     async def get_node_list(self):
@@ -8,4 +9,6 @@ class DigbyToolsExtension(ComfyExtension):
             DigbyKeyframer, 
             DigbyLTXVLatentPrep,
             DigbyLTXVAddGuidesFromBatch,
+            DigbyKrea2Patch,
+            DigbyRange,
             ]

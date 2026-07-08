@@ -19,7 +19,7 @@ class DigbyLTXVLatentPrep(io.ComfyNode):
                 io.Vae.Input(id="video_vae", tooltip="LTXV Video VAE"),
                 io.Vae.Input(id="audio_vae", tooltip="LTXV Audio VAE"),
                 io.Boolean.Input(id="downscale_2stage", default=True),
-                io.Float.Input(id="frame_rate", default=24, min=24),
+                io.Float.Input(id="frame_rate", default=24, min=12),
                 io.Int.Input(id="minimum_seconds", default=3, min=1, max=45),
                 io.Int.Input(id="width", default=1280, min=2, step=2),
                 io.Int.Input(id="height", default=720, min=2, step=2),
